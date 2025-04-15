@@ -22,6 +22,10 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
+#include <stdio.h>					// Để sử dụng chính xác hàm sprintf mà không bị warning với kiểu dữ liệu char *
+#include <string.h>					// Để sử dụng chính xác các hàm xử lý chuỗi mà không bị warning với kiểu dữ liệu char *
+#include "tm_stm32f4_mfrc522.h"		// Sử dụng thư viện giao tiêp với module MFRC522 đã import vào dự án
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -95,6 +99,13 @@ int main(void)
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
 
+  /// Chú ý: MX_SPI4_Init() chỉ khởi tạo 3 chân pin SCLK, MISO, MOSI. Các chân điều khiển còn lại trong giao thức SPI sẽ phải tự cấu hình bằng code, hoặc trong file .ioc
+
+  /// Khởi tạo kết nối với Module MFRC522 (đọc thẻ NFC 13.56Mhz) qua giao thức SPI
+  TM_MFRC522_Init();
+  /// Bộ đệm dữ liệu để soạn thông báo, gửi qua uart về máy tính, đẻ debug
+  char uart_buf[100];
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -104,6 +115,18 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	  /// Biến chứa mã định danh, ID, của thẻ
+	  uint8_t CardID[5];
+	  /// Kiểm tra và đọc thông tin thẻ được quét.
+	  if (TM_MFRC522_Check(CardID) == MI_OK) {
+		  sprintf(uart_buf, "%s", "RFID Card found!\r\n");
+	  } else {
+		  sprintf(uart_buf, "%s", "RFID Card Not found!\r\n");
+	  }
+	  /// Gửi thông báo kết quả đọc NFC về máy tính
+	  HAL_UART_Transmit(&huart1, (const uint8_t *) uart_buf, strlen(uart_buf), 2);
+	  /// Đợi một chút, để MFRC522 kịp reset lại hoạt động
+	  HAL_Delay(400);
   }
   /* USER CODE END 3 */
 }
@@ -238,6 +261,7 @@ static void MX_USART1_UART_Init(void)
   */
 static void MX_GPIO_Init(void)
 {
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
   /* USER CODE BEGIN MX_GPIO_Init_1 */
 
   /* USER CODE END MX_GPIO_Init_1 */
@@ -246,6 +270,16 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : PE4 */
+  GPIO_InitStruct.Pin = GPIO_PIN_4;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
